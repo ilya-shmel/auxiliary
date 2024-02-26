@@ -60,6 +60,27 @@ else
     echo "Error log entries: ${RED}[ERROR]${RESET}"
 fi
 
+### Проверка работы каждого термита
+## Cобытия поступают -?, нет ошибок
+TERMITE_ERRORS=$(echo $(journalctl --quiet --output=short --priority=0..3 --since yesterday) | grep "termite")
+if [[ -z $TERMITE_ERRORS ]]
+then
+    echo "Termite errors: ${GREEN}[OK]${RESET}"
+else
+    echo "Termite errors: ${RED}[ERROR]${RESET}"
+fi
+
+## Проверка работы парсинга на термитах (исправление при обнаружении)
+PARSING_ERRORS=$(echo $(journalctl --quiet --output=short --since yesterday) | grep "could not be parsed")
+
+if [[ -z $PARSING_ERRORS ]]
+then
+    echo "Parsing errors: ${GREEN}[OK]${RESET}"
+else
+    echo "Parsing errors: ${RED}[ERROR]${RESET}"
+fi
+
+
 #CORRELATOR_IDLE=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $4}'| awk -F' ' '{print $3}')
 #CORRELATOR_WAIT=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $5}' | awk -F' ' '{print $3}')  
 #
