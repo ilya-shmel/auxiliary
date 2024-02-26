@@ -9,7 +9,17 @@ RESET=$(tput sgr 0)
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
 
-## Проверить доступность мониторинга и собираемых метрик
+## Проверить доступность мониторинга и собираемых метрик - master?
+echo "Checking the monitoring availability."
+MONITORING=$(curl -s https://$(hostname -i)/admin/monitoring)
+
+if [[ ! -n $(echo $MONITORING) ]]
+then
+    echo "${RED}${BOLD}The monitoring page is unavailable!${RESET}"
+else
+    echo "${YELLOW}The monitoring page is available!${RESET}"
+fi
+
 echo "Checking the Prometheus metrics."
 METRICS=$(curl -s https://$(hostname -i):9100/metrics)
 
