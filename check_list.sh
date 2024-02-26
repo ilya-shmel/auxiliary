@@ -9,7 +9,10 @@ RESET=$(tput sgr 0)
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
 
-## Проверить доступность мониторинга и собираемых метрик - master?
+TRESHOLD=85
+CURRENT_NODE_IP=$(hostname -i)
+
+## Проверить доступность мониторинга и собираемых метрик -> master?
 echo "Checking the monitoring availability."
 MONITORING=$(curl -s https://$(hostname -i)/admin/monitoring)
 
@@ -34,6 +37,19 @@ else
         echo "${YELLOW}The Prometheus metrics are available!${RESET}"
     fi
 fi
+
+## Проверка наличия дискового пространства на всех нодах и разделах (должно быть занято менее 85%)
+echo "Checking the disk space availability."
+USED_DISK_SPACE=$(df -h / | grep "/dev" | awk -F' ' '{print $5}' | awk -F'%' '{print $1}')
+PARTITION=$(df -h / | grep "/dev" | awk -F' ' '{print $1}')
+
+if [[ $USED_DISK_SPACE -ge $TRESHOLD ]]
+then 
+	echo "Used disk space: ${RED}[ALERT] ("$USED_DISK_SPACE"%)${RESET}"
+else
+    echo "Used disk space: ${GREEN}[OK]${RESET}"
+fi
+
 
 #CORRELATOR_IDLE=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $4}'| awk -F' ' '{print $3}')
 #CORRELATOR_WAIT=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $5}' | awk -F' ' '{print $3}')  
