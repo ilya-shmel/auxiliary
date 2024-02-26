@@ -67,6 +67,7 @@ IP=$CURRENT_NODE_IP
 TRESHOLD=85
 TERMITE_DIR="/opt/pangeoradar/configs/termite/"
 TERMITE_SUB_DIR=("normalizers/" "normalizers/system" "normalizers/debug" "normalizers/client" "parsers/client" "parsers/debug" "parsers/system")
+PGR_LOGROTATE="/etc/logrotate.d/pgr_logrotate"
 
 ## Проверить доступность мониторинга и собираемых метрик -> master?
 #echo "Checking the monitoring availability."
@@ -202,6 +203,32 @@ then
     echo "The $SE_VERSION events rotation: ${GREEN}[OK]${RESET}"
 else
     echo "The $SE_VERSION events rotation: ${RED}[No rotation]${RESET}"
+fi
+
+## Проверить объемы логов (/var/log) и настройки службы logrotate - объем логов не должен превышать 10% от общего объема диска
+LOGS_SIZE=$(du -hs /var/log | awk -F' ' '{print $1}' | sed 's/.$//')
+DISC_SIZE=$(df -h / | grep "/dev" | awk -F' ' '{print $2}' | sed 's/.$//')
+LOGS_SIZE_TRESHOLD=$((DISC_SIZE * 1024 / 10))
+
+## Checj the '/var/log' size
+if [[ $LOGS_SIZE -ge $LOGS_SIZE_TRESHOLD ]]
+then
+    echo "The /var/logs size: ${RED}["$LOGS_SIZE"M]${RESET}"
+else    
+    echo "The /var/logs size: ${GREEN}[OK]${RESET}"
+fi
+
+## Check the logrotate
+if [[ ! -e $PGR_LOGROTATE ]] || [[ ! -s $PGR_LOGROTATE ]]
+then
+    echo "pgr_logrotate: ${RED}[ERROR]${RESET}"
+else
+    if [[ $(cat $PGR_LOGROTATE | wc --lines) -lt 200 ]]
+    then
+        echo "pgr_logrotate: ${RED}[ERROR]${RESET}"
+    else 
+        echo "pgr_logrotate: ${GREEN}[OK]${RESET}"
+    fi
 fi
 
 #CORRELATOR_IDLE=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $4}'| awk -F' ' '{print $3}')
