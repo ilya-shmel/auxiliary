@@ -61,9 +61,10 @@ declare -A check_worker
 check_worker[pangeoradar-termite]=1
 check_worker[pangeoradar-termite-api]=1
 
+CURRENT_NODE_IP=$(hostname -i)
+IP=$CURRENT_NODE_IP
 
 TRESHOLD=85
-CURRENT_NODE_IP=$(hostname -i)
 TERMITE_DIR="/opt/pangeoradar/configs/termite/"
 TERMITE_SUB_DIR=("normalizers/" "normalizers/system" "normalizers/debug" "normalizers/client" "parsers/client" "parsers/debug" "parsers/system")
 
@@ -166,8 +167,42 @@ fi
 
 ## Просмотреть аудит действий
 
+## OpenSearch (Elasticsearch для версии 3.6.7 и ниже) -> data
+## Убедиться, что статус кластера GREEN - получается, здесь надо переделать для data в самом скрипте
+## Check OpenSearch or ElasticSearch distribution
+SE_VERSION=$(curl --silent -k -X GET https://$IP:9200 | jq -r '.version.distribution')
 
+if [[ $SE_VERSION == "opensearch" ]]
+then 
+    SE_VERSION="OpenSearch"
+    SE_LOG="/var/log/opensearch/pgr-os-cluster.log"
+else
+    SE_VERSION="ElasticSearch"
+    SE_LOG="/var/log/elasticsearch/pgr-es-cluster.log"
+fi
 
+CLUSTER_HEALTH=$(curl --connect-timeout 5 -k -XGET -s https://$IP:9200/_cluster/health?pretty)
+CLUSTER_STATUS=$(echo $CLUSTER_HEALTH | jq -r '.status')
+
+case "$CLUSTER_STATUS" in
+    green) echo "The $SE_VERSION cluster status: ${GREEN}[GREEN]${RESET}";;
+    yellow) echo "The $SE_VERSION cluster status: ${YELLOW}[YELLOW]${RESET}";; 
+    red) echo "The $SE_VERSION cluster status: ${RED}[RED]${RESET}";;
+    *) echo "${RED}WARNING: cannot obtain the cluster status.${RESET}";; 
+esac
+
+## Проверить работу ротации событий в OS (журнал работы)
+ALLOC=$(grep "o.e.c.r.a.AllocationService" $SE_LOG)
+MAPPING=$(grep "o.e.c.m.MetaDataMappingService" $SE_LOG)
+TEMPLATE=$(grep "o.e.c.m.MetaDataIndexTemplateService" $SE_LOG)
+CREATE=$(grep "o.e.c.m.MetaDataCreateIndexService" $SE_LOG)
+
+if [[ -n $ALLOC ]] || [[ -n $MAPPING ]] || [[ -n $TEMPLATE ]] || [[ -n $CREATE ]]
+then
+    echo "The $SE_VERSION events rotation: ${GREEN}[OK]${RESET}"
+else
+    echo "The $SE_VERSION events rotation: ${RED}[No rotation]${RESET}"
+fi
 
 #CORRELATOR_IDLE=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $4}'| awk -F' ' '{print $3}')
 #CORRELATOR_WAIT=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $5}' | awk -F' ' '{print $3}')  
