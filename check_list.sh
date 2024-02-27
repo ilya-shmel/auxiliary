@@ -68,6 +68,7 @@ TRESHOLD=85
 TERMITE_DIR="/opt/pangeoradar/configs/termite/"
 TERMITE_SUB_DIR=("normalizers/" "normalizers/system" "normalizers/debug" "normalizers/client" "parsers/client" "parsers/debug" "parsers/system")
 PGR_LOGROTATE="/etc/logrotate.d/pgr_logrotate"
+CERT_DIR="/opt/pangeoradar/certs/"
 
 ## Проверить доступность мониторинга и собираемых метрик -> master?
 #echo "Checking the monitoring availability."
@@ -177,9 +178,11 @@ if [[ $SE_VERSION == "opensearch" ]]
 then 
     SE_VERSION="OpenSearch"
     SE_LOG="/var/log/opensearch/pgr-os-cluster.log"
+    SE_CRT_NAME="os.crt"
 else
     SE_VERSION="ElasticSearch"
     SE_LOG="/var/log/elasticsearch/pgr-es-cluster.log"
+    SE_CRT_NAME="es.crt"
 fi
 
 CLUSTER_HEALTH=$(curl --connect-timeout 5 -k -XGET -s https://$IP:9200/_cluster/health?pretty)
@@ -210,7 +213,7 @@ LOGS_SIZE=$(du -hs /var/log | awk -F' ' '{print $1}' | sed 's/.$//')
 DISC_SIZE=$(df -h / | grep "/dev" | awk -F' ' '{print $2}' | sed 's/.$//')
 LOGS_SIZE_TRESHOLD=$((DISC_SIZE * 1024 / 10))
 
-## Checj the '/var/log' size
+## Check the '/var/log' size
 if [[ $LOGS_SIZE -ge $LOGS_SIZE_TRESHOLD ]]
 then
     echo "The /var/logs size: ${RED}["$LOGS_SIZE"M]${RESET}"
@@ -229,6 +232,34 @@ else
     else 
         echo "pgr_logrotate: ${GREEN}[OK]${RESET}"
     fi
+fi
+
+## Проверить доступ в документацию -> master
+MANUAL=$(curl -s "https://$IP:8097")
+
+if [[ -z $(echo $MANUAL | grep "400 Bad Request") ]] && [[ -z $(echo $MANUAL | grep "404 Not Found") ]]
+then 
+    echo "Documentation: ${GREEN}[OK]${RESET}"
+else
+    echo "Documentation: ${RED}[ERROR]${RESET}"
+fi
+
+## Проверить сроки действия сертификатов NGINX и OpenSearch на всех нодах -> all nodes
+SE_CRT=$(openssl x509 -noout -in "$CERT_DIR""$SE_CRT_NAME" -checkend 86400)
+NGINX_CRT=$(openssl x509 -noout -in "$CERT_DIR"pgr.crt -checkend 86400)
+
+if [[ $SE_CRT == "Certificate will not expire" ]]
+then 
+    echo "$SE_VERSION certificate: ${GREEN}[OK]${RESET}"
+else
+    echo "$SE_VERSION certificate: ${RED}[ERROR]${RESET}"
+fi
+
+if [[ $NGINX_CRT == "Certificate will not expire" ]]
+then 
+    echo "NGINX certificate: ${GREEN}[OK]${RESET}"
+else
+    echo "NGINX certificate: ${RED}[ERROR]${RESET}"
 fi
 
 #CORRELATOR_IDLE=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $4}'| awk -F' ' '{print $3}')
