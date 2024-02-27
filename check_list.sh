@@ -262,6 +262,44 @@ else
     echo "NGINX certificate: ${RED}[ERROR]${RESET}"
 fi
 
+## Проверить кроны на нодах (что не изменились) -> all nodes
+CRON_JOBS=('/etc/crontab' '/etc/cron.d/atop' '/etc/cron.d/sysstat' '/etc/cron.daily/apt-compat' '/etc/cron.daily/bsdmainutils' '/etc/cron.daily/dpkg' '/etc/cron.daily/logrotate' '/etc/cron.daily/ntp' '/etc/cron.daily/passwd' '/etc/cron.daily/sysstat') 
+#CRON_DATES=(1629225944 1629375535 1708065682 1629225924 1629225944 1629225923 1629225943 1701862388 1629225925 1708065682)
+SYSTREM_BOOT=$(who -b)
+REBOOT_TIME=$(date --date="$(echo $SYSTEM_BOOT | awk -F' ' '{print $3, $4}')" +"%s")
+CRON_WARN=0
+
+
+for (( INDEX=0; INDEX<${#CRON_JOBS[@]}; ++INDEX ))
+do
+    LAST_CHANGE=$(stat --format %Z ${CRON_JOBS[INDEX]})
+    if [[ $LAST_CHANGE -ge $REBOOT_TIME  ]]
+    then
+        echo "${CRON_JOBS[INDEX]} was edited"
+        CRON_WARN=$((CRON_WARN + 1))
+    fi
+done
+
+## Check if the CRON directories are empty
+if [[ -n $(ls -l /etc/cron.monthly/* 2>/dev/null) ]] || [[ -n $(ls -l /etc/cron.weekly/* 2>/dev/null) ]] || [[ -n $(ls -l /etc/cron.hourly/* 2>/dev/null) ]]
+then
+    CRON_WARN=$((CRON_WARN + 1)) 
+fi
+
+## Check the number of files in the cron.d directory
+if [[ $(ls /etc/cron.d | wc --lines) -gt 2 ]]
+then
+    echo "Additional jobs in /etc/cron.d!"
+    CRON_WARN=$((CRON_WARN + 1))
+fi
+
+if [[ $CRON_WARN -gt 0 ]]
+then 
+    echo "CRON jobs: ${RED}[ERROR]${RESET}"
+else
+    echo "CRON jobs: ${GREEN}[OK]${RESET}"
+fi
+
 #CORRELATOR_IDLE=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $4}'| awk -F' ' '{print $3}')
 #CORRELATOR_WAIT=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $5}' | awk -F' ' '{print $3}')  
 #
