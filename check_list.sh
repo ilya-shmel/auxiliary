@@ -259,7 +259,7 @@ if [[ $NGINX_CRT == "Certificate will not expire" ]]
 then 
     echo "NGINX certificate: ${GREEN}[OK]${RESET}"
 else
-    echo "NGINX certificate: ${RED}[ERROR]${RESET}"
+    echo CORRELATOR_IDLE
 fi
 
 ## Проверить кроны на нодах (что не изменились) -> all nodes
@@ -295,14 +295,60 @@ fi
 
 if [[ $CRON_WARN -gt 0 ]]
 then 
-    echo "CRON jobs: ${RED}[ERROR]${RESET}"
+    echo "CRON jobs: ${YELLOW}[WARNING]${RESET}"
 else
     echo "CRON jobs: ${GREEN}[OK]${RESET}"
 fi
 
-#CORRELATOR_IDLE=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $4}'| awk -F' ' '{print $3}')
-#CORRELATOR_WAIT=$(top -bn1 | grep "%Cpu" | awk -F'.' '{print $5}' | awk -F' ' '{print $3}')  
-#
-#CORRELATOR_LA1=$(awk -F' ' '{print $1}' /proc/loadavg)
-#CORRELATOR_LA5=$(awk -F' ' '{print $2}' /proc/loadavg)
-#CORRELATOR_LA15=$(awk -F' ' '{print $3}' /proc/loadavg)
+## Сервер корреляции -> correlator
+## Проверить наличие свободной памяти (ОЗУ)
+FREE_MEMORY=$(free -m | grep "Mem:")
+FREE_MEMORY=$(echo $FREE_MEMORY | awk -F' ' '{print $4}')
+
+if [[ $FREE_MEMORY -le 1000 ]]
+then 
+    echo "Free memory: ${YELLOW}[WARNING - "$FREE_MEMORY"Mb]${RESET}"
+else
+    echo "Free memory: ${GREEN}[OK]${RESET}"
+fi
+
+## Проверить загрузку - id, wa in top
+CPU_LINE=$(top -bn1 | grep Cpu)
+CORRELATOR_IDLE=$(echo $CPU_LINE | awk -F'.' '{print $4}'| awk -F' ' '{print $3}')
+CORRELATOR_WAIT=$(echo $CPU_LINE | awk -F'.' '{print $5}' | awk -F' ' '{print $3}')
+
+## Check the CPU idle
+if [[ $CORRELATOR_IDLE -le 50 ]]
+then
+    echo "CPU idle time: ${YELLOW}[WARNING]${RESET}"
+else
+    echo "CPU idle time: ${GREEN}[OK]${RESET}"
+fi
+
+## Check the CPU wait
+if [[ $CORRELATOR_WAIT -gt 3 ]]
+then
+    echo "CPU wait time: ${YELLOW}[WARNING]${RESET}"
+else
+    echo "CPU wait time: ${GREEN}[OK]${RESET}"
+fi
+
+## Проверить LA
+LOAD_AVERAGE=$(cat /proc/loadavg)
+
+CORRELATOR_LA1=$(echo $LOAD_AVERAGE | awk -F' ' '{print $1}' /proc/loadavg)
+CORRELATOR_LA5=$(echo $LOAD_AVERAGE | awk -F' ' '{print $2}' /proc/loadavg)
+CORRELATOR_LA15=$(echo $LOAD_AVERAGE | awk -F' ' '{print $3}' /proc/loadavg)
+
+CORES=$(nproc --all)
+
+COMPARE1=$(echo $CORES $CORRELATOR_LA1 | awk '{if ($1 > $2) print 1;}')
+COMPARE5=$(echo $CORES $CORRELATOR_LA5 | awk '{if ($1 > $2) print 1;}')
+COMPARE15=$(echo $CORES $CORRELATOR_LA15 | awk '{if ($1 > $2) print 1;}')
+
+if [[ $COMPARE1 != 1 || $COMPARE5 != 1 || $COMPARE15 != 1 ]]
+then 
+    echo "Load average: ${RED}[WARNING]${RESET}"
+else
+    echo "Load average: ${GREEN}[OK]${RESET}"
+fi
