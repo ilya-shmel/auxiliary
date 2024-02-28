@@ -352,3 +352,25 @@ then
 else
     echo "Load average: ${GREEN}[OK]${RESET}"
 fi
+
+## Проверить срок лицензии -> master
+## Upload the API key 
+API_KEY="$(grep "GLOBAL_API_KEY" /opt/pangeoradar/configs/cruddy.env | awk -F'=' '{print $2}')"
+
+## Get the current epoch date
+CURRENT_DATE=$(date --date="$(date)" +"%s")
+
+LIC_EXPIRED=($(curl --silent --header "PgrApiKey: $API_KEY" "https://$IP:9009/licence" | jq -r '.[].data[].expire'))
+
+## Compare the licence date and the nowtime
+for (( INDEX=0; INDEX < ${#LIC_EXPIRED[@]}; INDEX++ ))
+do
+## Convert licence date to epoch time
+    LIC_DATE=$(date --date="$(echo ${LIC_EXPIRED[INDEX]} | awk -F'T' '{print $1}')" +"%s")
+    if [[ $LIC_DATE -le $CURRENT_DATE ]]
+    then
+        echo "Licence expiration: ${RED}[ERROR]${RESET}"
+    else
+        echo "Licence expiration: ${GREEN}[OK]${RESET}"
+    fi
+done
