@@ -1,5 +1,14 @@
 #!/usr/bin/bash
 
+## Font variables
+RED=$(tput setaf 1)
+YELLOW=$(tput setaf 3)
+GREEN=$(tput setaf 2)
+ORANGE=$(tput setaf 202)
+RESET=$(tput sgr 0)
+BOLD=$(tput bold)
+NORMAL=$(tput sgr0)
+
 IP=$(hostname -i)
 
 ## Get the API answer for an users' activity changelog 
@@ -28,5 +37,17 @@ curl "https://$IP:9009/toller/history/system_configs/00000000-0000-0000-0000-000
 ## Parse the JSON file by an action date
 CHANGELOG_DATES=($(jq '.[].data.payload[].createdAt' /tmp/changelog.json | sed 's/^.//' | sed 's/.$//'))
 
-echo ${CHANGELOG_DATES[0]}
-echo ${CHANGELOG_DATES[1]}
+## Getting dates
+YESTERDAY=$(date --date="1 day ago" +%s)
+
+for CREATED_AT in ${CHANGELOG_DATES[@]}
+do
+    CHANGES_DATE=$(date --date="$(echo $CREATED_AT | awk -F'T' '{print $1}')" +%s)
+
+    if [[ $CHANGES_DATE -ge $YESTERDAY ]]
+    then
+        echo "System configs history: ${ORANGE}[New changes]${RESET}"
+    else
+        echo "System configs history: ${GREEN}[OK]${RESET}"
+    fi
+done
