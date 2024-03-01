@@ -26,4 +26,7 @@ curl "https://$IP:9009/toller/history/system_configs/00000000-0000-0000-0000-000
   --output "/tmp/changelog.json"
 
 ## Parse the JSON file by an action date
-jq '.[].data.payload[].createdAt' /tmp/changelog.json 
+CHANGELOG_DATES=($(jq '.[].data.payload[].createdAt' /tmp/changelog.json | sed 's/^.//' | sed 's/.$//'))
+
+echo ${CHANGELOG_DATES[0]}
+echo ${CHANGELOG_DATES[1]}
