@@ -38,16 +38,27 @@ curl "https://$IP:9009/toller/history/system_configs/00000000-0000-0000-0000-000
 CHANGELOG_DATES=($(jq '.[].data.payload[].createdAt' /tmp/changelog.json | sed 's/^.//' | sed 's/.$//'))
 
 ## Getting dates
-YESTERDAY=$(date --date="1 day ago" +%s)
+#YESTERDAY=$(date --date="1 day ago" +%s)
+#YESTERDAY=$(date --date="2023-10-30" +%s)
+CHANGES=0
 
+## Compare the yesterday date with dates in a changelog history
 for CREATED_AT in ${CHANGELOG_DATES[@]}
 do
     CHANGES_DATE=$(date --date="$(echo $CREATED_AT | awk -F'T' '{print $1}')" +%s)
 
     if [[ $CHANGES_DATE -ge $YESTERDAY ]]
     then
-        echo "System configs history: ${ORANGE}[New changes]${RESET}"
+        CHANGES=$((CHANGES + 1))      
     else
-        echo "System configs history: ${GREEN}[OK]${RESET}"
+        continue
     fi
 done
+
+## Send a signal if there're some changes
+if [[ $CHANGES != 0 ]]
+then
+    echo "System configs history: ${ORANGE}[New changes - $CHANGES]${RESET}"
+else
+    echo "System configs history: ${GREEN}[OK]${RESET}"
+fi
