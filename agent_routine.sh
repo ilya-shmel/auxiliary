@@ -1,4 +1,6 @@
 #!/usr/bin/bash
+
+## The firs option is a master node IP address
 SOURCE_LINES=(4 5 7 8)
 MASTER_NODE=$1
 
@@ -12,6 +14,10 @@ do
     sed "$LINE s/^.//" sources.list >output.txt && mv output.txt sources.list
 done
 
+## Add the pangeoradar.list file
+echo "deb [trusted=yes] https://$MASTER_NODE:4443 1.7_x86-64 main" > /etc/apt/sources.list.d/pangeoradar.list
+
+apt update
 #apt install wget
 #
 ### Install Log Navigator
